@@ -1,0 +1,7 @@
+CREATE DATABASE IF NOT EXISTS php_credentials;
+USE php_credentials;
+
+CREATE TABLE IF NOT EXISTS user (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(255) NOT NULL
+);
