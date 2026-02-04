@@ -1,5 +1,6 @@
-CREATE DATABASE IF NOT EXISTS php_credentials;
-USE php_credentials;
+DROP DATABASE IF EXISTS php_credentials;
+CREATE DATABASE IF NOT EXISTS php_exam_db;
+USE php_exam_db;
 
 CREATE TABLE IF NOT EXISTS User (
     UserId INT AUTO_INCREMENT PRIMARY KEY,
