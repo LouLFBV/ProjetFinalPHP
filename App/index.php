@@ -1,14 +1,23 @@
 <?php
-$status = "Le serveur intégré PHP fonctionne !";
+// On inclut le header qui s'occupe de la session et de la DB
+require_once 'includes/header.php'; 
+
+$result = $mysqli->query("SELECT * FROM Article ORDER BY date_publication DESC");
 ?>
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <title>Test E-Commerce</title>
-</head>
-<body>
-    <h1><?php echo $status; ?></h1>
-    <p>Prêt pour le projet final PHP.</p>
-</body>
-</html>
+
+<h1>Bienvenue sur notre boutique</h1>
+
+<div class="articles-list">
+    <?php while ($row = $result->fetch_assoc()): ?>
+        <div class="article">
+            <h3><?php echo htmlspecialchars($row['nom']); ?></h3>
+            <p>Prix : <?php echo formatPrix($row['prix']); // Utilisation de notre fonction ! ?></p>
+            <a href="detail.php?id=<?php echo $row['id']; ?>">Voir le détail</a>
+        </div>
+    <?php endwhile; ?>
+</div>
+
+<?php 
+// On inclut le footer pour fermer la page
+require_once 'includes/footer.php'; 
+?>
