@@ -34,34 +34,31 @@ if (isset($_POST['update'])) {
     $nom = $_POST['nom'];
     $desc = $_POST['description'];
     $prix = $_POST['prix'];
+    $cat_id = !empty($_POST['category_id']) ? intval($_POST['category_id']) : null;
     $nouveau_stock = intval($_POST['stock']);
-    
-    // A. Mise à jour de la table Article
-    $upd = $mysqli->prepare("UPDATE Article SET nom = ?, description = ?, prix = ? WHERE id = ?");
-    $upd->bind_param("ssdi", $nom, $desc, $prix, $article_id);
+
+    // UNE SEULE REQUÊTE UPDATE POUR ARTICLE (Celle avec category_id)
+    $upd = $mysqli->prepare("UPDATE Article SET nom = ?, description = ?, prix = ?, category_id = ? WHERE id = ?");
+    $upd->bind_param("ssdii", $nom, $desc, $prix, $cat_id, $article_id);
     $res_art = $upd->execute();
     
-    // B. Mise à jour ou INSERTION du stock (sécurité si la ligne n'existait pas)
-    // On vérifie d'abord si une ligne de stock existe pour cet article
+    // B. Mise à jour ou INSERTION du stock
     $check_stock = $mysqli->query("SELECT article_id FROM Stock WHERE article_id = $article_id");
-    
     if ($check_stock->num_rows > 0) {
-        // La ligne existe, on UPDATE
         $upd_stock = $mysqli->prepare("UPDATE Stock SET quantite = ? WHERE article_id = ?");
         $upd_stock->bind_param("ii", $nouveau_stock, $article_id);
     } else {
-        // La ligne n'existe pas, on INSERT
         $upd_stock = $mysqli->prepare("INSERT INTO Stock (quantite, article_id) VALUES (?, ?)");
         $upd_stock->bind_param("ii", $nouveau_stock, $article_id);
     }
     $res_stock = $upd_stock->execute();
     
     if ($res_art && $res_stock) {
-        echo "<p style='color:green; background:#eaffea; padding:10px;'>Article et stock mis à jour !</p>";
-        // Rafraîchissement des variables pour le formulaire
+        echo "<p style='color:green; background:#eaffea; padding:10px;'>Article, catégorie et stock mis à jour !</p>";
         $article['nom'] = $nom;
         $article['description'] = $desc;
         $article['prix'] = $prix;
+        $article['category_id'] = $cat_id; // Mise à jour de la variable locale
         $article['quantite'] = $nouveau_stock;
     }
 }
@@ -78,6 +75,18 @@ if (isset($_POST['update'])) {
     <label>Description :</label><br>
     <textarea name="description" required style="width:100%; height:100px; padding:8px;"><?php echo htmlspecialchars($article['description']); ?></textarea><br><br>
     
+    <label>Catégorie :</label><br>
+    <select name="category_id" style="padding:8px; width:100%;">
+        <option value="">-- Choisir une catégorie --</option>
+        <?php
+        $cats = $mysqli->query("SELECT * FROM Category ORDER BY nom ASC");
+        while($c = $cats->fetch_assoc()):
+            $sel = ($c['id'] == $article['category_id']) ? 'selected' : '';
+            echo "<option value='{$c['id']}' $sel>{$c['nom']}</option>";
+        endwhile;
+        ?>
+    </select><br><br>
+
     <label>Prix (€) :</label><br>
     <input type="number" step="0.01" name="prix" value="<?php echo $article['prix']; ?>" required style="padding:8px;"><br><br>
     

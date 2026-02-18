@@ -12,7 +12,6 @@ if ($is_me && isset($_POST['add_balance'])) {
         $stmt_upd = $mysqli->prepare("UPDATE User SET balance = balance + ? WHERE id = ?");
         $stmt_upd->bind_param("di", $amount, $_SESSION['user_id']);
         $stmt_upd->execute();
-        // On redirige pour rafraîchir l'affichage du solde
         header("Location: account.php");
         exit;
     }
@@ -25,6 +24,15 @@ $stmt_u->execute();
 $user = $stmt_u->get_result()->fetch_assoc();
 
 if (!$user) die("Utilisateur introuvable.");
+
+// Récupération des favoris (uniquement pour soi)
+$mes_favoris = null;
+if ($is_me) {
+    $my_id = $_SESSION['user_id'];
+    $mes_favoris = $mysqli->query("SELECT Article.* FROM Favorite 
+                                   JOIN Article ON Favorite.article_id = Article.id 
+                                   WHERE Favorite.user_id = $my_id");
+}
 
 // Articles postés par ce compte
 $stmt_art = $mysqli->prepare("SELECT * FROM Article WHERE auteur_id = ? ORDER BY date_publication DESC");
@@ -48,14 +56,31 @@ $mes_articles = $stmt_art->get_result();
             <button type="submit" name="add_balance">Recharger</button>
         </form>
         <br><br>
-        
         <a href="edit_profile.php">Modifier mes infos</a>
     <?php endif; ?>
 </div>
 
-<hr>
+<?php if ($is_me): ?>
+    <hr>
+    <h3>Mes Articles Favoris ❤️</h3>
+    <div style="display: flex; gap: 10px; flex-wrap: wrap; margin-bottom: 20px;">
+        <?php if ($mes_favoris && $mes_favoris->num_rows > 0): ?>
+            <?php while($fav = $mes_favoris->fetch_assoc()): ?>
+                <div style="border: 1px solid #ccc; padding: 10px; border-radius: 5px; background: white; min-width: 150px;">
+                    <a href="detail.php?id=<?php echo $fav['id']; ?>" style="text-decoration:none; color:#333;">
+                        <strong><?php echo htmlspecialchars($fav['nom']); ?></strong><br>
+                        <span style="color:green;"><?php echo formatPrix($fav['prix']); ?></span>
+                    </a>
+                </div>
+            <?php endwhile; ?>
+        <?php else: ?>
+            <p>Vous n'avez pas encore d'articles en favoris.</p>
+        <?php endif; ?>
+    </div>
+<?php endif; ?>
 
-<h3>Articles mis en vente</h3>
+<hr>
+<h3>Articles mis en vente par <?php echo htmlspecialchars($user['username']); ?></h3>
 <div class="list">
     <?php if ($mes_articles->num_rows > 0): ?>
         <?php while($row = $mes_articles->fetch_assoc()): ?>
@@ -63,7 +88,7 @@ $mes_articles = $stmt_art->get_result();
                 <strong><?php echo htmlspecialchars($row['nom']); ?></strong> - <?php echo formatPrix($row['prix']); ?>
                 <a href="detail.php?id=<?php echo $row['id']; ?>">Voir</a>
                 <?php if ($is_me || (isset($_SESSION['role']) && $_SESSION['role'] === 'admin')): ?>
-                    | <a href="edit.php?id=<?php echo $row['id']; ?>">Modifier/Supprimer</a>
+                    | <a href="edit.php?id=<?php echo $row['id']; ?>" style="color:orange;">Modifier/Supprimer</a>
                 <?php endif; ?>
             </p>
         <?php endwhile; ?>
@@ -74,7 +99,7 @@ $mes_articles = $stmt_art->get_result();
 
 <?php if ($is_me): ?>
     <hr>
-    <h3>Mes Factures</h3>
+    <h3>Mes Factures 📄</h3>
     <?php
     $stmt_inv = $mysqli->prepare("SELECT * FROM Invoice WHERE user_id = ? ORDER BY date_achat DESC");
     $stmt_inv->bind_param("i", $_SESSION['user_id']);
@@ -95,22 +120,20 @@ $mes_articles = $stmt_art->get_result();
                     <td>
                         <ul style="margin: 5px 0; padding-left: 20px; font-size: 0.9em;">
                         <?php
-                        // On va chercher les articles liés à CETTE facture
                         $inv_id = $f['id'];
                         $items_res = $mysqli->query("SELECT * FROM Invoice_Item WHERE invoice_id = $inv_id");
                         while($it = $items_res->fetch_assoc()): ?>
                             <li>
-                                <?php echo htmlspecialchars($it['nom_article']); ?> 
-                                (x<?php echo $it['quantite']; ?>) : 
+                                <?php echo htmlspecialchars($it['nom_article']); ?> (x<?php echo $it['quantite']; ?>) : 
                                 <strong><?php echo formatPrix($it['prix_unitaire'] * $it['quantite']); ?></strong>
                             </li>
                         <?php endwhile; ?>
                         </ul>
                     </td>
-                    <td style="font-weight:bold; color: #2c3e50;">
+                    <td style="font-weight:bold; color: #2c3e50; text-align:center;">
                         <?php echo formatPrix($f['total']); ?>
                     </td>
-                    <td style="font-size: 0.8em;">
+                    <td style="font-size: 0.8em; text-align:center;">
                         Le <?php echo date('d/m/Y', strtotime($f['date_achat'])); ?><br>
                         à <?php echo htmlspecialchars($f['ville_facturation']); ?>
                     </td>

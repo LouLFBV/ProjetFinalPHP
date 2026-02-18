@@ -1,26 +1,46 @@
 <?php
 require_once 'includes/header.php';
 
-$search = isset($_GET['q']) ? $_GET['q'] : '';
+// 1. Récupération des paramètres de recherche et de tri
+$search = isset($_GET['search']) ? $mysqli->real_escape_string($_GET['search']) : '';
+$sort = isset($_GET['sort']) ? $_GET['sort'] : 'date_desc';
 
-// Requête de base : on joint le stock et on filtre uniquement les produits DISPONIBLES (> 0)
-$query = "SELECT Article.* FROM Article 
-          JOIN Stock ON Article.id = Stock.article_id 
-          WHERE Stock.quantite > 0";
+// 2. Définition de la clause ORDER BY
+$order_by = "Article.date_publication DESC"; // Par défaut : plus récent
+if ($sort == 'price_asc') $order_by = "Article.prix ASC";
+if ($sort == 'price_desc') $order_by = "Article.prix DESC";
+if ($sort == 'date_asc') $order_by = "Article.date_publication ASC";
+
+// 3. Construction de la requête avec recherche (si remplie)
+$query = "SELECT Article.*, Stock.quantite, User.username as auteur 
+          FROM Article 
+          LEFT JOIN Stock ON Article.id = Stock.article_id 
+          INNER JOIN User ON Article.auteur_id = User.id";
 
 if (!empty($search)) {
-    // Si recherche, on ajoute les conditions de nom ou description
-    $query .= " AND (Article.nom LIKE ? OR Article.description LIKE ?)";
-    $query .= " ORDER BY Article.date_publication DESC";
-    $stmt = $mysqli->prepare($query);
-    $search_param = "%$search%";
-    $stmt->bind_param("ss", $search_param, $search_param);
-    $stmt->execute();
-    $result = $stmt->get_result();
-} else {
-    // Sinon affichage classique par date
-    $result = $mysqli->query($query . " ORDER BY Article.date_publication DESC");
+    $query .= " WHERE Article.nom LIKE '%$search%' OR Article.description LIKE '%$search%'";
 }
+
+$cat_filter = isset($_GET['category']) ? intval($_GET['category']) : 0;
+
+// On modifie la construction de la requête $query
+$query = "SELECT Article.*, Stock.quantite, User.username as auteur, Category.nom as cat_nom 
+          FROM Article 
+          LEFT JOIN Stock ON Article.id = Stock.article_id 
+          INNER JOIN User ON Article.auteur_id = User.id
+          LEFT JOIN Category ON Article.category_id = Category.id
+          WHERE 1=1"; // Astuce SQL pour enchaîner les AND facilement
+
+if (!empty($search)) {
+    $query .= " AND (Article.nom LIKE '%$search%' OR Article.description LIKE '%$search%')";
+}
+
+if ($cat_filter > 0) {
+    $query .= " AND Article.category_id = $cat_filter";
+}
+
+$query .= " ORDER BY $order_by";
+$res = $mysqli->query($query);
 ?>
 
 <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin'): ?>
@@ -33,26 +53,66 @@ if (!empty($search)) {
     </div>
 <?php endif; ?>
 
+<h1>Boutique</h1>
+
+<div style="background: #f9f9f9; padding: 15px; border-radius: 8px; margin-bottom: 20px; display: flex; gap: 20px; align-items: center;">
+    <form method="GET" style="flex-grow: 1; display: flex; gap: 5px;">
+        <input type="text" name="search" placeholder="Rechercher un article..." 
+               value="<?php echo htmlspecialchars($search); ?>" style="flex-grow: 1; padding: 8px;">
+        <button type="submit">🔍</button>
+    </form>
+
+    <form method="GET" style="display: flex; gap: 10px;">
+    <input type="hidden" name="search" value="<?php echo htmlspecialchars($search); ?>">
+    
+    <select name="category" onchange="this.form.submit()" style="padding: 8px;">
+        <option value="0">Toutes les catégories</option>
+        <?php
+        $all_cats = $mysqli->query("SELECT * FROM Category ORDER BY nom ASC");
+        while($ac = $all_cats->fetch_assoc()):
+            $s = ($ac['id'] == $cat_filter) ? 'selected' : '';
+            echo "<option value='{$ac['id']}' $s>{$ac['nom']}</option>";
+        endwhile;
+        ?>
+    </select>
+
+    <select name="sort" onchange="this.form.submit()" style="padding: 8px;">
+        <option value="date_desc" <?php if($sort == 'date_desc') echo 'selected'; ?>>Plus récents</option>
+        <option value="date_asc" <?php if($sort == 'date_asc') echo 'selected'; ?>>Plus anciens</option>
+        <option value="price_asc" <?php if($sort == 'price_asc') echo 'selected'; ?>>Prix croissant</option>
+        <option value="price_desc" <?php if($sort == 'price_desc') echo 'selected'; ?>>Prix décroissant</option>
+    </select>
+</form>
+</div>
+
 <h1>Articles en vente</h1>
 
-<form method="GET" action="index.php" style="margin-bottom: 30px; display: flex; gap: 10px;">
-    <input type="text" name="q" placeholder="Rechercher un produit..." value="<?php echo htmlspecialchars($search); ?>" style="flex-grow: 1; padding: 10px;">
-    <button type="submit" style="padding: 10px 20px; cursor: pointer;">Rechercher</button>
-</form>
+<div style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px;">
+    <?php if ($res->num_rows > 0): ?>
+        <?php while($art = $res->fetch_assoc()): ?>
+            <div style="border: 1px solid #ddd; padding: 15px; border-radius: 8px; position: relative;">
+               <h3><?php echo htmlspecialchars($art['nom']); ?></h3>
+                <?php if($art['cat_nom']): ?>
+                    <span style="background:#eee; padding:2px 6px; border-radius:4px; font-size:0.7em;">
+                        <?php echo htmlspecialchars($art['cat_nom']); ?>
+                    </span>
+                <?php endif; ?>
+                <p style="font-size: 0.9em; color: #666;">Par : <?php echo htmlspecialchars($art['auteur']); ?></p>
+                <p><strong><?php echo formatPrix($art['prix']); ?></strong></p>
+                
+                <?php if ($art['quantite'] > 0): ?>
+                    <p style="color: green; font-size: 0.8em;">En stock (<?php echo $art['quantite']; ?>)</p>
+                <?php else: ?>
+                    <p style="color: red; font-size: 0.8em; font-weight: bold;">Rupture de stock</p>
+                <?php endif; ?>
 
-<div class="articles-grid" style="display: grid; grid-template-columns: repeat(auto-fill, minmax(250px, 1fr)); gap: 20px;">
-    <?php if ($result && $result->num_rows > 0): ?>
-        <?php while ($row = $result->fetch_assoc()): ?>
-            <div class="article-card" style="border: 1px solid #ddd; padding: 15px; border-radius: 8px; text-align: center;">
-                <h3 style="margin-top: 0;"><?php echo htmlspecialchars($row['nom']); ?></h3>
-                <p style="font-size: 1.2em; color: #2c3e50; font-weight: bold;"><?php echo formatPrix($row['prix']); ?></p>
-                <a href="detail.php?id=<?php echo $row['id']; ?>" style="display: inline-block; background: #4CAF50; color: white; padding: 10px 15px; text-decoration: none; border-radius: 4px;">
-                    Voir le détail
+                <a href="detail.php?id=<?php echo $art['id']; ?>" style="display: inline-block; margin-top: 10px; background: #007bff; color: white; padding: 5px 10px; text-decoration: none; border-radius: 4px;">
+                    Voir le produit
                 </a>
             </div>
         <?php endwhile; ?>
     <?php else: ?>
-        <p>Désolé, aucun article ne correspond à votre recherche ou n'est disponible pour le moment.</p>
+        <p>Aucun article ne correspond à votre recherche.</p>
     <?php endif; ?>
 </div>
 
