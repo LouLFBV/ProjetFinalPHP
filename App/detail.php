@@ -1,57 +1,42 @@
 <?php
-require_once 'includes/header.php'; // Gère déjà session_start, db.php et functions.php
+require_once 'includes/header.php';
+$id = intval($_GET['id']);
 
-// 1. Récupération de l'ID via la requête GET [cite: 30]
-$article_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
+// Mise à jour de la requête pour inclure le nom de l'auteur (User.username)
+$res = $mysqli->query("SELECT Article.*, Stock.quantite as stock, User.username as auteur_nom 
+                       FROM Article 
+                       LEFT JOIN Stock ON Article.id = Stock.article_id 
+                       INNER JOIN User ON Article.auteur_id = User.id
+                       WHERE Article.id = $id");
+$art = $res->fetch_assoc();
 
-if ($article_id <= 0) {
-    header("Location: index.php");
-    exit;
-}
-
-// 2. Requête pour les détails de l'article et son auteur [cite: 29, 83]
-$query = "SELECT Article.*, User.username FROM Article 
-          LEFT JOIN User ON Article.auteur_id = User.id 
-          WHERE Article.id = ?";
-$stmt = $mysqli->prepare($query);
-$stmt->bind_param("i", $article_id);
-$stmt->execute();
-$result = $stmt->get_result();
-$article = $result->fetch_assoc();
-
-if (!$article) {
-    echo "<p>Article introuvable.</p>";
-    require_once 'includes/footer.php';
-    exit;
-}
+if (!$art) die("Article introuvable.");
 ?>
 
-<a href="index.php">← Retour aux articles</a>
+<h1><?php echo htmlspecialchars($art['nom']); ?></h1>
 
-<div class="product-detail">
-    <h1><?php echo htmlspecialchars($article['nom']); ?></h1>
-    
-    <?php if (!empty($article['image_url'])): ?>
-        <img src="<?php echo htmlspecialchars($article['image_url']); ?>" alt="Image" style="max-width:400px;">
-    <?php endif; ?>
+<p>Vendu par : 
+    <a href="account.php?id=<?php echo $art['auteur_id']; ?>">
+        <strong><?php echo htmlspecialchars($art['auteur_nom']); ?></strong>
+    </a>
+</p>
 
-    <p><strong>Prix :</strong> <?php echo formatPrix($article['prix']); ?></p>
-    <p><strong>Vendu par :</strong> <?php echo htmlspecialchars($article['username'] ?? 'Anonyme'); ?></p>
-    <p><strong>Description :</strong></p>
-    <p><?php echo nl2br(htmlspecialchars($article['description'])); ?></p>
-    
-    <hr>
+<p><?php echo nl2br(htmlspecialchars($art['description'])); ?></p>
+<p>Prix : <?php echo formatPrix($art['prix']); ?></p>
+<p>Stock disponible : <?php echo $art['stock']; ?></p>
 
-    <?php if (isset($_SESSION['user_id'])): ?>
+<?php if (isset($_SESSION['user_id'])): ?>
+    <?php if ($art['stock'] > 0): ?>
         <form action="cart.php" method="POST">
-            <input type="hidden" name="article_id" value="<?php echo $article['id']; ?>">
-            <label for="quantite">Quantité :</label>
-            <input type="number" name="quantite" value="1" min="1" required>
+            <input type="hidden" name="article_id" value="<?php echo $art['id']; ?>">
+            <input type="number" name="quantite" value="1" min="1" max="<?php echo $art['stock']; ?>">
             <button type="submit">Ajouter au panier</button>
         </form>
     <?php else: ?>
-        <p><em><a href="login.php">Connectez-vous</a> pour acheter cet article.</em></p>
+        <p style="color:red;">Rupture de stock.</p>
     <?php endif; ?>
-</div>
+<?php else: ?>
+    <a href="login.php">Connectez-vous pour acheter</a>
+<?php endif; ?>
 
 <?php require_once 'includes/footer.php'; ?>

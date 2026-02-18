@@ -1,4 +1,5 @@
 <?php
+require_once 'includes/header.php';
 // 1. Activation totale des erreurs
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
@@ -8,7 +9,6 @@ if (!file_exists('includes/db.php')) {
     die("Erreur critique : Le fichier includes/db.php est introuvable !");
 }
 require_once 'includes/db.php';
-session_start();
 
 $error = "";
 
@@ -73,3 +73,5 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     </form>
 </body>
 </html>
+
+<?php require_once 'includes/footer.php'; ?>

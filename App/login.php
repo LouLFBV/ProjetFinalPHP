@@ -1,6 +1,5 @@
 <?php
-require_once 'includes/db.php';
-session_start();
+require_once 'includes/header.php';
 
 $error = "";
 
@@ -8,17 +7,20 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $email = $_POST['email'];
     $password = $_POST['password'];
 
-    $stmt = $mysqli->prepare("SELECT id, username, password FROM User WHERE email = ?");
+    // Requête incluant le rôle
+    $stmt = $mysqli->prepare("SELECT id, username, password, role FROM User WHERE email = ?");
     $stmt->bind_param("s", $email);
     $stmt->execute();
     $result = $stmt->get_result();
     $user = $result->fetch_assoc();
 
-    // Vérification du hash bcrypt
+    // Vérification du hash bcrypt [cite: 75]
     if ($user && password_verify($password, $user['password'])) {
         $_SESSION['user_id'] = $user['id'];
         $_SESSION['username'] = $user['username'];
-        header('Location: index.php');
+        // Maintenant $user['role'] contient bien 'admin' ou 'user'
+        $_SESSION['role'] = $user['role']; 
+        header("Location: index.php");
         exit;
     } else {
         $error = "Identifiants incorrects.";
@@ -42,3 +44,5 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     <p>Pas de compte ? <a href="register.php">Inscrivez-vous</a></p>
 </body>
 </html>
+
+<?php require_once 'includes/footer.php'; ?>

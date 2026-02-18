@@ -1,57 +1,38 @@
 <?php
 require_once 'includes/header.php';
+checkConnexion(); // Protection obligatoire [cite: 62]
 
-// Protection de la page : redirection si non connecté 
-checkConnexion();
-
-$message = "";
-
-// Logique de traitement du formulaire
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
     $nom = $_POST['nom'];
-    $description = $_POST['description'];
+    $desc = $_POST['description'];
     $prix = $_POST['prix'];
-    $image_url = $_POST['image_url'] ?? '';
+    $stock_qty = intval($_POST['stock']);
+    $img = $_POST['image_url'] ?? '';
     $user_id = $_SESSION['user_id'];
 
-    // Insertion dans la table Article [cite: 69, 83]
+    // 1. Insertion Article [cite: 69, 83]
     $stmt = $mysqli->prepare("INSERT INTO Article (nom, description, prix, auteur_id, image_url) VALUES (?, ?, ?, ?, ?)");
-    $stmt->bind_param("ssdis", $nom, $description, $prix, $user_id, $image_url);
+    $stmt->bind_param("ssdis", $nom, $desc, $prix, $user_id, $img);
     
     if ($stmt->execute()) {
-        $message = "<p style='color:green;'>Votre article a été mis en vente avec succès !</p>";
-    } else {
-        $message = "<p style='color:red;'>Erreur lors de la mise en vente.</p>";
+        $article_id = $mysqli->insert_id;
+        // 2. Insertion Stock obligatoire [cite: 28, 92, 93]
+        $stmt_s = $mysqli->prepare("INSERT INTO Stock (article_id, quantite) VALUES (?, ?)");
+        $stmt_s->bind_param("ii", $article_id, $stock_qty);
+        $stmt_s->execute();
+        echo "<p style='color:green;'>Article mis en vente avec stock !</p>";
     }
 }
 ?>
 
-<h1>Mettre un article en vente</h1>
-
-<?php echo $message; ?>
-
-<form method="POST" action="vente.php">
-    <div>
-        <label>Nom de l'article :</label><br>
-        <input type="text" name="nom" placeholder="Ex: Gourde isotherme" required>
-    </div>
-    <br>
-    <div>
-        <label>Description :</label><br>
-        <textarea name="description" rows="5" placeholder="Décrivez votre objet..." required></textarea>
-    </div>
-    <br>
-    <div>
-        <label>Prix (€) :</label><br>
-        <input type="number" step="0.01" name="prix" placeholder="0.00" required>
-    </div>
-    <br>
-    <div>
-        <label>URL de l'image (optionnel) :</label><br>
-        <input type="text" name="image_url" placeholder="http://...">
-    </div>
-    <br>
-    <button type="submit">Publier l'annonce</button>
+<h1>Vendre un article</h1>
+<form method="POST">
+    <input type="text" name="nom" placeholder="Nom" required><br><br>
+    <textarea name="description" placeholder="Description" required></textarea><br><br>
+    <input type="number" step="0.01" name="prix" placeholder="Prix (€)" required><br><br>
+    <input type="number" name="stock" placeholder="Quantité en stock" min="1" required><br><br>
+    <input type="text" name="image_url" placeholder="Lien image"><br><br>
+    <button type="submit">Publier</button>
 </form>
 
 <?php require_once 'includes/footer.php'; ?>

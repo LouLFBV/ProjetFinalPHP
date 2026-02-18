@@ -2,70 +2,124 @@
 require_once 'includes/header.php';
 checkConnexion();
 
-$user_id = $_SESSION['user_id'];
-$message = "";
+$target_id = isset($_GET['id']) ? intval($_GET['id']) : $_SESSION['user_id'];
+$is_me = ($target_id == $_SESSION['user_id']);
 
-// 1. Logique pour ajouter de l'argent (Recharger le compte)
-if (isset($_POST['add_money'])) {
+// --- LOGIQUE DE RECHARGEMENT ---
+if ($is_me && isset($_POST['add_balance'])) {
     $amount = floatval($_POST['amount']);
     if ($amount > 0) {
-        $stmt = $mysqli->prepare("UPDATE User SET balance = balance + ? WHERE id = ?");
-        $stmt->bind_param("di", $amount, $user_id);
-        $stmt->execute();
-        $message = "<p style='color:green;'>Compte rechargé avec succès !</p>";
+        $stmt_upd = $mysqli->prepare("UPDATE User SET balance = balance + ? WHERE id = ?");
+        $stmt_upd->bind_param("di", $amount, $_SESSION['user_id']);
+        $stmt_upd->execute();
+        // On redirige pour rafraîchir l'affichage du solde
+        header("Location: account.php");
+        exit;
     }
 }
 
-// 2. Récupérer les infos de l'utilisateur (solde actuel)
-$stmt = $mysqli->prepare("SELECT username, email, balance FROM User WHERE id = ?");
-$stmt->bind_param("i", $user_id);
-$stmt->execute();
-$user = $stmt->get_result()->fetch_assoc();
+// Infos de l'utilisateur visé
+$stmt_u = $mysqli->prepare("SELECT username, email, balance FROM User WHERE id = ?");
+$stmt_u->bind_param("i", $target_id);
+$stmt_u->execute();
+$user = $stmt_u->get_result()->fetch_assoc();
 
-// 3. Récupérer l'historique des factures
-$stmt = $mysqli->prepare("SELECT * FROM Invoice WHERE user_id = ? ORDER BY date_achat DESC");
-$stmt->bind_param("i", $user_id);
-$stmt->execute();
-$invoices = $stmt->get_result();
+if (!$user) die("Utilisateur introuvable.");
+
+// Articles postés par ce compte
+$stmt_art = $mysqli->prepare("SELECT * FROM Article WHERE auteur_id = ? ORDER BY date_publication DESC");
+$stmt_art->bind_param("i", $target_id);
+$stmt_art->execute();
+$mes_articles = $stmt_art->get_result();
 ?>
 
-<h1>Mon Compte</h1>
+<h1>Profil de <?php echo htmlspecialchars($user['username']); ?></h1>
 
-<div class="account-info" style="background: #f4f4f4; padding: 20px; border-radius: 8px;">
+<div style="background:#f4f4f4; padding:15px; border-radius:8px; margin-bottom:20px;">
     <p><strong>Pseudo :</strong> <?php echo htmlspecialchars($user['username']); ?></p>
-    <p><strong>Email :</strong> <?php echo htmlspecialchars($user['email']); ?></p>
-    <p><strong>Solde actuel :</strong> <span style="font-size: 1.5em; color: green;"><?php echo formatPrix($user['balance']); ?></span></p>
+    
+    <?php if ($is_me): ?>
+        <p><strong>Email :</strong> <?php echo htmlspecialchars($user['email']); ?></p>
+        <p><strong>Mon Solde :</strong> <span style="color:green; font-weight:bold;"><?php echo formatPrix($user['balance']); ?></span></p>
+        
+        <form method="POST" style="margin-top: 10px; padding: 10px; border: 1px dashed #ccc; display: inline-block;">
+            <label>Ajouter des fonds (€) :</label><br>
+            <input type="number" name="amount" step="0.01" min="1" placeholder="Ex: 50" required>
+            <button type="submit" name="add_balance">Recharger</button>
+        </form>
+        <br><br>
+        
+        <a href="edit_profile.php">Modifier mes infos</a>
+    <?php endif; ?>
 </div>
 
 <hr>
 
-<h3>Recharger mon compte</h3>
-<?php echo $message; ?>
-<form method="POST">
-    <input type="number" name="amount" step="10" min="10" value="50">
-    <button type="submit" name="add_money">Ajouter des fonds</button>
-</form>
-
-<hr>
-
-<h3>Historique de mes achats (Factures)</h3>
-<?php if ($invoices->num_rows > 0): ?>
-    <table border="1" width="100%" style="text-align: left; border-collapse: collapse;">
-        <tr style="background: #eee;">
-            <th style="padding: 10px;">N° Facture</th>
-            <th style="padding: 10px;">Date</th>
-            <th style="padding: 10px;">Montant Total</th>
-        </tr>
-        <?php while ($inv = $invoices->fetch_assoc()): ?>
-        <tr>
-            <td style="padding: 10px;">#<?php echo $inv['id']; ?></td>
-            <td style="padding: 10px;"><?php echo date('d/m/Y H:i', strtotime($inv['date_achat'])); ?></td>
-            <td style="padding: 10px;"><?php echo formatPrix($inv['total']); ?></td>
-        </tr>
+<h3>Articles mis en vente</h3>
+<div class="list">
+    <?php if ($mes_articles->num_rows > 0): ?>
+        <?php while($row = $mes_articles->fetch_assoc()): ?>
+            <p>
+                <strong><?php echo htmlspecialchars($row['nom']); ?></strong> - <?php echo formatPrix($row['prix']); ?>
+                <a href="detail.php?id=<?php echo $row['id']; ?>">Voir</a>
+                <?php if ($is_me || (isset($_SESSION['role']) && $_SESSION['role'] === 'admin')): ?>
+                    | <a href="edit.php?id=<?php echo $row['id']; ?>">Modifier/Supprimer</a>
+                <?php endif; ?>
+            </p>
         <?php endwhile; ?>
-    </table>
-<?php else: ?>
-    <p>Vous n'avez pas encore effectué d'achats.</p>
+    <?php else: ?>
+        <p>Aucun article publié.</p>
+    <?php endif; ?>
+</div>
+
+<?php if ($is_me): ?>
+    <hr>
+    <h3>Mes Factures</h3>
+    <?php
+    $stmt_inv = $mysqli->prepare("SELECT * FROM Invoice WHERE user_id = ? ORDER BY date_achat DESC");
+    $stmt_inv->bind_param("i", $_SESSION['user_id']);
+    $stmt_inv->execute();
+    $res_inv = $stmt_inv->get_result();
+
+    if ($res_inv->num_rows > 0): ?>
+        <table border="1" style="width:100%; border-collapse: collapse;">
+            <tr style="background:#eee;">
+                <th>N° Facture</th>
+                <th>Détails des articles</th>
+                <th>Total</th>
+                <th>Date & Ville</th>
+            </tr>
+            <?php while($f = $res_inv->fetch_assoc()): ?>
+                <tr>
+                    <td style="text-align:center;">#<?php echo $f['id']; ?></td>
+                    <td>
+                        <ul style="margin: 5px 0; padding-left: 20px; font-size: 0.9em;">
+                        <?php
+                        // On va chercher les articles liés à CETTE facture
+                        $inv_id = $f['id'];
+                        $items_res = $mysqli->query("SELECT * FROM Invoice_Item WHERE invoice_id = $inv_id");
+                        while($it = $items_res->fetch_assoc()): ?>
+                            <li>
+                                <?php echo htmlspecialchars($it['nom_article']); ?> 
+                                (x<?php echo $it['quantite']; ?>) : 
+                                <strong><?php echo formatPrix($it['prix_unitaire'] * $it['quantite']); ?></strong>
+                            </li>
+                        <?php endwhile; ?>
+                        </ul>
+                    </td>
+                    <td style="font-weight:bold; color: #2c3e50;">
+                        <?php echo formatPrix($f['total']); ?>
+                    </td>
+                    <td style="font-size: 0.8em;">
+                        Le <?php echo date('d/m/Y', strtotime($f['date_achat'])); ?><br>
+                        à <?php echo htmlspecialchars($f['ville_facturation']); ?>
+                    </td>
+                </tr>
+            <?php endwhile; ?>
+        </table>
+    <?php else: ?>
+        <p>Vous n'avez pas encore d'historique d'achat.</p>
+    <?php endif; ?>
 <?php endif; ?>
 
 <?php require_once 'includes/footer.php'; ?>
