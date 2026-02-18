@@ -1,0 +1,50 @@
+DROP DATABASE IF EXISTS php_credentials;
+CREATE DATABASE IF NOT EXISTS php_exam_db;
+USE php_exam_db;
+
+CREATE TABLE IF NOT EXISTS User (
+    UserId INT AUTO_INCREMENT PRIMARY KEY,
+    username VARCHAR(255) NOT NULL,
+    passwd VARCHAR(255) NOT NULL, 
+    mail VARCHAR(255) NOT NULL,
+    solde DECIMAL(10, 2) DEFAULT 0.00, 
+    photo VARCHAR(255),
+    roles VARCHAR(50) DEFAULT 'user'
+);
+
+CREATE TABLE IF NOT EXISTS Article (
+    ArticleId INT AUTO_INCREMENT PRIMARY KEY,
+    nom VARCHAR(255) NOT NULL,
+    descriptions TEXT NOT NULL,
+    prix DECIMAL(10, 2) NOT NULL,
+    datePublication DATETIME DEFAULT CURRENT_TIMESTAMP,
+    UserId INT NOT NULL, 
+    ImageLink VARCHAR(255),
+    FOREIGN KEY (UserId) REFERENCES User(UserId)
+);
+
+CREATE TABLE IF NOT EXISTS Cart (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    UserId INT NOT NULL,
+    ArticleId INT NOT NULL,
+    FOREIGN KEY (UserId) REFERENCES User(UserId),
+    FOREIGN KEY (ArticleId) REFERENCES Article(ArticleId)
+);
+
+CREATE TABLE IF NOT EXISTS Invoice (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    UserId INT NOT NULL,
+    TransactionDate DATETIME DEFAULT CURRENT_TIMESTAMP,
+    Montant DECIMAL(10, 2) NOT NULL,
+    Adresse VARCHAR(255) NOT NULL,
+    Ville VARCHAR(100) NOT NULL,
+    CodePostale VARCHAR(20) NOT NULL,
+    FOREIGN KEY (UserId) REFERENCES User(UserId)
+);
+
+CREATE TABLE IF NOT EXISTS Stock (
+    id INT AUTO_INCREMENT PRIMARY KEY,
+    ArticleId INT NOT NULL,
+    ArticleStock INT DEFAULT 0, 
+    FOREIGN KEY (ArticleId) REFERENCES Article(ArticleId)
+);
