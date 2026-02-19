@@ -82,7 +82,10 @@ $stats = $mysqli->query("SELECT AVG(note) as moyenne, COUNT(*) as nb_avis FROM R
         <h1 style="font-size: 2.5rem; margin: 15px 0;"><?php echo htmlspecialchars($art['nom']); ?></h1>
         
         <p style="color: #666;">
-            Vendeur : <strong><?php echo htmlspecialchars($art['username']); ?></strong> 
+            Vendeur : 
+            <a href="account.php?id=<?php echo $art['auteur_id']; ?>" style="text-decoration: none; color: #007bff; font-weight: bold;">
+                <?php echo htmlspecialchars($art['username']); ?>
+            </a> 
             <small>(le <?php echo date('d/m/Y', strtotime($art['date_publication'])); ?>)</small>
         </p>
 

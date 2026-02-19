@@ -3,7 +3,7 @@
 -- https://www.phpmyadmin.net/
 --
 -- Hôte : 127.0.0.1
--- Généré le : jeu. 19 fév. 2026 à 15:53
+-- Généré le : jeu. 19 fév. 2026 à 17:55
 -- Version du serveur : 10.4.32-MariaDB
 -- Version de PHP : 8.2.12
 
@@ -64,6 +64,13 @@ CREATE TABLE `cart` (
   `quantite` int(11) DEFAULT 1
 ) ENGINE=InnoDB DEFAULT CHARSET=utf8mb4 COLLATE=utf8mb4_general_ci;
 
+--
+-- Déchargement des données de la table `cart`
+--
+
+INSERT INTO `cart` (`id`, `user_id`, `article_id`, `quantite`) VALUES
+(17, 1, 7, 1);
+
 -- --------------------------------------------------------
 
 --
@@ -102,7 +109,8 @@ CREATE TABLE `favorite` (
 --
 
 INSERT INTO `favorite` (`id`, `user_id`, `article_id`) VALUES
-(2, 4, 6);
+(2, 4, 6),
+(4, 1, 7);
 
 -- --------------------------------------------------------
 
@@ -321,7 +329,7 @@ ALTER TABLE `article`
 -- AUTO_INCREMENT pour la table `cart`
 --
 ALTER TABLE `cart`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=15;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=18;
 
 --
 -- AUTO_INCREMENT pour la table `category`
@@ -333,7 +341,7 @@ ALTER TABLE `category`
 -- AUTO_INCREMENT pour la table `favorite`
 --
 ALTER TABLE `favorite`
-  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=3;
+  MODIFY `id` int(11) NOT NULL AUTO_INCREMENT, AUTO_INCREMENT=5;
 
 --
 -- AUTO_INCREMENT pour la table `invoice`
