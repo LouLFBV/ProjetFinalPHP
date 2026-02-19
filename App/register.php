@@ -1,10 +1,9 @@
 <?php
 require_once 'includes/header.php';
-// 1. Activation totale des erreurs
+
 ini_set('display_errors', 1);
 error_reporting(E_ALL);
 
-// 2. Vérification du fichier de connexion
 if (!file_exists('includes/db.php')) {
     die("Erreur critique : Le fichier includes/db.php est introuvable !");
 }
@@ -12,19 +11,16 @@ require_once 'includes/db.php';
 
 $error = "";
 
-// 3. Logique de traitement
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $username = $_POST['username'] ?? '';
-    $email = $_POST['email'] ?? '';
+    $username = trim($_POST['username'] ?? '');
+    $email = trim($_POST['email'] ?? '');
     $password = $_POST['password'] ?? '';
 
     if (!empty($username) && !empty($email) && !empty($password)) {
-        // Le hashage du mot de passe
         $hashedPassword = password_hash($password, PASSWORD_BCRYPT);
         
-        // Requête préparée
-        $stmt = $mysqli->prepare("INSERT INTO User (username, email, password) VALUES (?, ?, ?)");
-
+        $stmt = $mysqli->prepare("INSERT INTO User (username, email, password, role) VALUES (?, ?, ?, 'user')");
+        
         if ($stmt === false) {
             die("Erreur de préparation : " . $mysqli->error);
         }
@@ -33,45 +29,56 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
         try {
             if ($stmt->execute()) {
-                // Connexion automatique après inscription (consigne projet)
                 $_SESSION['user_id'] = $mysqli->insert_id;
                 $_SESSION['username'] = $username;
+                $_SESSION['role'] = 'user'; 
 
-                // Redirection vers index.php
                 header('Location: index.php');
                 exit;
             }
         } catch (mysqli_sql_exception $e) {
-            $error = "Erreur : L'utilisateur ou l'email existe déjà.";
+            $error = "Ce pseudonyme ou cet email est déjà utilisé.";
         }
     } else {
-        $error = "Tous les champs sont obligatoires.";
+        $error = "Veuillez remplir tous les champs.";
     }
 }
 ?>
 
-<!DOCTYPE html>
-<html lang="fr">
-<head>
-    <meta charset="UTF-8">
-    <title>Inscription - E-Commerce</title>
-</head>
-<body>
-    <h1>Créer un compte</h1>
-    
-    <?php if(!empty($error)): ?>
-        <p style="color:red; border: 1px solid red; padding: 10px;">
-            <?php echo $error; ?>
-        </p>
-    <?php endif; ?>
+<div class="auth-wrapper">
+    <div class="auth-card">
+        <h1>Rejoindre la communauté</h1>
+        <p style="text-align: center; color: #666; margin-bottom: 25px;">Créez votre compte pour vendre et acheter sur Vendons-les.</p>
 
-    <form method="POST" action="register.php">
-        <input type="text" name="username" placeholder="Username" required><br><br>
-        <input type="email" name="email" placeholder="Email" required><br><br>
-        <input type="password" name="password" placeholder="Mot de passe" required><br><br>
-        <button type="submit">S'inscrire</button>
-    </form>
-</body>
-</html>
+        <?php if(!empty($error)): ?>
+            <div class="alert-error">
+                <?php echo $error; ?>
+            </div>
+        <?php endif; ?>
+
+        <form method="POST" action="register.php" class="auth-form">
+            <div class="form-group">
+                <label for="username">Nom d'utilisateur</label>
+                <input type="text" name="username" id="username" placeholder="Ex: JeanDupont" required>
+            </div>
+
+            <div class="form-group">
+                <label for="email">Adresse Email</label>
+                <input type="email" name="email" id="email" placeholder="jean@exemple.fr" required>
+            </div>
+
+            <div class="form-group">
+                <label for="password">Mot de passe</label>
+                <input type="password" name="password" id="password" placeholder="Min. 8 caractères" required>
+            </div>
+
+            <button type="submit" class="btn-submit">Créer mon compte</button>
+        </form>
+
+        <div class="auth-footer">
+            Vous avez déjà un compte ? <a href="login.php">Connectez-vous</a>
+        </div>
+    </div>
+</div>
 
 <?php require_once 'includes/footer.php'; ?>

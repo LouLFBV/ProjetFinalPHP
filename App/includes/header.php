@@ -1,5 +1,4 @@
 <?php
-// On démarre la session ici une seule fois pour tout le site
 if (session_status() === PHP_SESSION_NONE) {
     session_start();
 }
@@ -10,44 +9,39 @@ require_once 'functions.php';
 <html lang="fr">
 <head>
     <meta charset="UTF-8">
-    <title>Mon E-Commerce PHP</title>
-    <style>
-        nav { background: #333; color: white; padding: 10px; display: flex; align-items: center; justify-content: space-between; }
-        .nav-links { display: flex; gap: 15px; }
-        nav a { color: white; text-decoration: none; font-size: 14px; }
-        nav a:hover { text-decoration: underline; }
-        
-        /* Style spécial pour le bouton admin */
-        .btn-admin { background: #dc3545; padding: 5px 10px; border-radius: 4px; font-weight: bold; }
-        .btn-admin:hover { background: #c82333; text-decoration: none !important; }
-        
-        .container { padding: 20px; }
-    </style>
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Vendons-les | Boutique d'occasion</title>
+    <link rel="stylesheet" href="assets/css/style.css">
 </head>
 <body>
     <nav>
+        <a href="index.php" class="logo">VENDONS-LES.</a>
+        
         <div class="nav-links">
             <a href="index.php">🏠 Accueil</a>
-            
             <?php if (isset($_SESSION['username'])): ?>
                 <a href="vente.php">📦 Vendre</a>
-                <a href="cart.php">🛒 Mon Panier</a>
+                <a href="cart.php">🛒 Panier</a>
                 <a href="account.php">👤 Mon Compte</a>
-                
                 <?php if (isset($_SESSION['role']) && $_SESSION['role'] === 'admin'): ?>
-                    <a href="admin.php" class="btn-admin">⚙️ Administration</a>
+                    <a href="admin.php" class="btn-admin">⚙️ Admin</a>
                 <?php endif; ?>
-
             <?php endif; ?>
         </div>
 
         <div class="nav-auth">
             <?php if (isset($_SESSION['username'])): ?>
-                <a href="logout.php" style="color: #bbb;">Déconnexion (<?php echo htmlspecialchars($_SESSION['username']); ?>)</a>
+                
+                <?php if (isset($_SESSION['role']) && $_SESSION['role'] !== 'admin'): ?>
+                    <span style="font-weight: bold; margin-right: 10px;">Bonjour, <?php echo htmlspecialchars($_SESSION['username']); ?></span>
+                <?php endif; ?>
+
+                <a href="logout.php" class="logout-link">Déconnexion</a>
+
             <?php else: ?>
-                <a href="login.php">Connexion</a>
-                <a href="register.php">Inscription</a>
+                <a href="login.php" class="btn-login">Connexion</a>
+                <a href="register.php">S'inscrire</a>
             <?php endif; ?>
         </div>
     </nav>
-    <div class="container">
+    <main class="container">

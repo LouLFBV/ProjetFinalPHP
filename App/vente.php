@@ -2,73 +2,95 @@
 require_once 'includes/header.php';
 checkConnexion(); 
 
+$message = "";
+
 if ($_SERVER['REQUEST_METHOD'] === 'POST') {
-    $nom = $_POST['nom'];
-    $desc = $_POST['description'];
-    $prix = $_POST['prix'];
+    $nom = $mysqli->real_escape_string($_POST['nom']);
+    $desc = $mysqli->real_escape_string($_POST['description']);
+    $prix = floatval($_POST['prix']);
     $stock_qty = intval($_POST['stock']);
-    $img = $_POST['image_url'] ?? '';
-    // On récupère la catégorie (peut être nulle si rien n'est choisi)
+    $img = $mysqli->real_escape_string($_POST['image_url'] ?? '');
     $cat_id = !empty($_POST['category_id']) ? intval($_POST['category_id']) : null;
     $user_id = $_SESSION['user_id'];
 
-    // 1. Insertion Article avec category_id
     $stmt = $mysqli->prepare("INSERT INTO Article (nom, description, prix, auteur_id, image_url, category_id) VALUES (?, ?, ?, ?, ?, ?)");
     $stmt->bind_param("ssdisi", $nom, $desc, $prix, $user_id, $img, $cat_id);
     
     if ($stmt->execute()) {
         $article_id = $mysqli->insert_id;
-        // 2. Insertion Stock obligatoire
         $stmt_s = $mysqli->prepare("INSERT INTO Stock (article_id, quantite) VALUES (?, ?)");
         $stmt_s->bind_param("ii", $article_id, $stock_qty);
         $stmt_s->execute();
         
-        echo "<p style='color:green; background:#eaffea; padding:10px; border-radius:5px;'>✅ Article mis en vente avec succès !</p>";
+        $message = "<div class='alert-success' style='background:#d4edda; color:#155724; padding:15px; border-radius:8px; margin-bottom:20px;'>🚀 Félicitations ! Votre article est désormais en ligne.</div>";
     } else {
-        echo "<p style='color:red;'>Erreur lors de la mise en vente.</p>";
+        $message = "<div class='alert-error'>❌ Une erreur est survenue lors de la publication.</div>";
     }
 }
 ?>
 
-<h1>Vendre un article</h1>
-
-<form method="POST" style="max-width: 500px; background: #f9f9f9; padding: 20px; border-radius: 8px; border: 1px solid #ddd;">
-    <label>Nom de l'objet :</label><br>
-    <input type="text" name="nom" placeholder="Ex: Clavier mécanique" required style="width:100%; padding:8px;"><br><br>
+<div style="max-width: 700px; margin: 40px auto; padding: 0 20px;">
     
-    <label>Description :</label><br>
-    <textarea name="description" placeholder="Détaillez l'état de l'objet..." required style="width:100%; height:80px; padding:8px;"></textarea><br><br>
+    <div style="margin-bottom: 30px;">
+        <h1 style="font-size: 2rem; margin-bottom: 10px;">Vendre un nouvel objet</h1>
+        <p style="color: #666;">Remplissez les détails ci-dessous pour publier votre annonce sur la marketplace.</p>
+    </div>
 
-    <label>Catégorie :</label><br>
-    <select name="category_id" style="width:100%; padding:8px;" required>
-        <option value="">-- Sélectionner une catégorie --</option>
-        <?php
-        $cats = $mysqli->query("SELECT * FROM Category ORDER BY nom ASC");
-        while($c = $cats->fetch_assoc()) {
-            echo "<option value='{$c['id']}'>".htmlspecialchars($c['nom'])."</option>";
-        }
-        ?>
-    </select><br><br>
-    
-    <div style="display: flex; gap: 10px;">
-        <div style="flex: 1;">
-            <label>Prix (€) :</label><br>
-            <input type="number" step="0.01" name="prix" placeholder="0.00" required style="width:100%; padding:8px;">
-        </div>
-        <div style="flex: 1;">
-            <label>Stock initial :</label><br>
-            <input type="number" name="stock" placeholder="1" min="1" required style="width:100%; padding:8px;">
-        </div>
-    </div><br>
+    <?php echo $message; ?>
 
-    <label>Lien de l'image (URL) :</label><br>
-    <input type="text" name="image_url" placeholder="https://..." style="width:100%; padding:8px;"><br><br>
-    
-    <button type="submit" style="width:100%; background: #28a745; color: white; border: none; padding: 12px; border-radius: 4px; cursor: pointer; font-weight: bold;">
-        Publier l'annonce
-    </button>
-</form>
+    <div class="auth-card" style="max-width: 100%; text-align: left;">
+        <form method="POST" class="auth-form">
+            
+            <div class="form-group">
+                <label>Nom de l'objet</label>
+                <input type="text" name="nom" placeholder="Ex: Sony WH-1000XM4..." required>
+            </div>
+            
+            <div class="form-group">
+                <label>Description</label>
+                <textarea name="description" placeholder="Décrivez l'état, les fonctionnalités, les accessoires inclus..." required 
+                          style="width:100%; height:120px; padding:12px; border:1px solid #ddd; border-radius:8px; font-family:inherit;"></textarea>
+            </div>
 
-<p style="margin-top: 15px;"><a href="index.php">← Retour à la boutique</a></p>
+            <div class="form-group">
+                <label>Catégorie</label>
+                <select name="category_id" required style="width:100%; padding:12px; border:1px solid #ddd; border-radius:8px; background:white; cursor:pointer;">
+                    <option value="">-- Choisir une catégorie --</option>
+                    <?php
+                    $cats = $mysqli->query("SELECT * FROM Category ORDER BY nom ASC");
+                    while($c = $cats->fetch_assoc()) {
+                        echo "<option value='{$c['id']}'>".htmlspecialchars($c['nom'])."</option>";
+                    }
+                    ?>
+                </select>
+            </div>
+            
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div class="form-group">
+                    <label>Prix de vente (€)</label>
+                    <input type="number" step="0.01" name="prix" placeholder="0.00" required>
+                </div>
+                <div class="form-group">
+                    <label>Nombre d'unités</label>
+                    <input type="number" name="stock" placeholder="1" min="1" required>
+                </div>
+            </div>
+
+            <div class="form-group">
+                <label>URL de l'image</label>
+                <input type="url" name="image_url" placeholder="https://votre-image.com/photo.jpg">
+                <small style="color:#999; display:block; margin-top:5px;">Utilisez un lien direct vers une image hébergée.</small>
+            </div>
+            
+            <button type="submit" class="btn-submit" style="margin-top: 20px; background: #28a745; border: none;">
+                📦 Mettre en vente l'article
+            </button>
+        </form>
+    </div>
+
+    <p style="text-align: center; margin-top: 20px;">
+        <a href="index.php" style="text-decoration: none; color: #666;">← Annuler et retourner à la boutique</a>
+    </p>
+</div>
 
 <?php require_once 'includes/footer.php'; ?>

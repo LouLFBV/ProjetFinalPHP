@@ -5,8 +5,9 @@ checkConnexion();
 $article_id = isset($_GET['id']) ? intval($_GET['id']) : 0;
 $user_id = $_SESSION['user_id'];
 $is_admin = (isset($_SESSION['role']) && $_SESSION['role'] === 'admin');
+$msg = "";
 
-// 1. Récupération de l'article ET de son stock (via une JOIN)
+// 1. Récupération de l'article ET de son stock
 $stmt = $mysqli->prepare("SELECT Article.*, Stock.quantite FROM Article 
                           LEFT JOIN Stock ON Article.id = Stock.article_id 
                           WHERE Article.id = ?");
@@ -14,7 +15,7 @@ $stmt->bind_param("i", $article_id);
 $stmt->execute();
 $article = $stmt->get_result()->fetch_assoc();
 
-// Vérification des droits
+// Vérification des droits : seul l'auteur ou l'admin peut modifier
 if (!$article || ($article['auteur_id'] != $user_id && !$is_admin)) {
     header("Location: index.php");
     exit;
@@ -22,27 +23,25 @@ if (!$article || ($article['auteur_id'] != $user_id && !$is_admin)) {
 
 // 2. Logique de Suppression
 if (isset($_POST['delete'])) {
-    // Note: Si tes clés étrangères sont bien configurées avec ON DELETE CASCADE, 
-    // supprimer l'article supprimera le stock automatiquement.
     $mysqli->query("DELETE FROM Article WHERE id = $article_id");
-    header("Location: account.php");
+    header("Location: account.php?msg=Article supprimé");
     exit;
 }
 
 // 3. Logique de Modification
 if (isset($_POST['update'])) {
-    $nom = $_POST['nom'];
-    $desc = $_POST['description'];
-    $prix = $_POST['prix'];
+    $nom = $mysqli->real_escape_string($_POST['nom']);
+    $desc = $mysqli->real_escape_string($_POST['description']);
+    $prix = floatval($_POST['prix']);
     $cat_id = !empty($_POST['category_id']) ? intval($_POST['category_id']) : null;
     $nouveau_stock = intval($_POST['stock']);
 
-    // UNE SEULE REQUÊTE UPDATE POUR ARTICLE (Celle avec category_id)
+    // Mise à jour Article
     $upd = $mysqli->prepare("UPDATE Article SET nom = ?, description = ?, prix = ?, category_id = ? WHERE id = ?");
     $upd->bind_param("ssdii", $nom, $desc, $prix, $cat_id, $article_id);
     $res_art = $upd->execute();
     
-    // B. Mise à jour ou INSERTION du stock
+    // Mise à jour Stock
     $check_stock = $mysqli->query("SELECT article_id FROM Stock WHERE article_id = $article_id");
     if ($check_stock->num_rows > 0) {
         $upd_stock = $mysqli->prepare("UPDATE Stock SET quantite = ? WHERE article_id = ?");
@@ -54,55 +53,75 @@ if (isset($_POST['update'])) {
     $res_stock = $upd_stock->execute();
     
     if ($res_art && $res_stock) {
-        echo "<p style='color:green; background:#eaffea; padding:10px;'>Article, catégorie et stock mis à jour !</p>";
+        $msg = "<div style='background:#d4edda; color:#155724; padding:15px; border-radius:8px; margin-bottom:20px;'>✨ Article et stock mis à jour avec succès !</div>";
         $article['nom'] = $nom;
         $article['description'] = $desc;
         $article['prix'] = $prix;
-        $article['category_id'] = $cat_id; // Mise à jour de la variable locale
+        $article['category_id'] = $cat_id;
         $article['quantite'] = $nouveau_stock;
     }
 }
 ?>
 
-<h1>Modifier l'article</h1>
+<div style="max-width: 800px; margin: 40px auto; padding: 0 20px;">
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 30px;">
+        <h1>Modifier l'annonce</h1>
+        <a href="account.php" class="btn-view" style="text-decoration: none;">Annuler</a>
+    </div>
 
+    <?php echo $msg; ?>
 
+    <div class="auth-card" style="max-width: 100%;">
+        <form method="POST" class="auth-form">
+            <div class="form-group">
+                <label>Titre de l'article</label>
+                <input type="text" name="nom" value="<?php echo htmlspecialchars($article['nom']); ?>" required>
+            </div>
+            
+            <div class="form-group">
+                <label>Description détaillée</label>
+                <textarea name="description" rows="6" style="width:100%; padding:12px; border:1px solid #ddd; border-radius:8px; font-family:inherit;" required><?php echo htmlspecialchars($article['description']); ?></textarea>
+            </div>
+            
+            <div class="form-group">
+                <label>Catégorie</label>
+                <select name="category_id" style="width:100%; padding:12px; border:1px solid #ddd; border-radius:8px; background:white;">
+                    <option value="">-- Sans catégorie --</option>
+                    <?php
+                    $cats = $mysqli->query("SELECT * FROM Category ORDER BY nom ASC");
+                    while($c = $cats->fetch_assoc()):
+                        $sel = ($c['id'] == $article['category_id']) ? 'selected' : '';
+                        echo "<option value='{$c['id']}' $sel>{$c['nom']}</option>";
+                    endwhile;
+                    ?>
+                </select>
+            </div>
 
-<form method="POST">
-    <label>Nom de l'article :</label><br>
-    <input type="text" name="nom" value="<?php echo htmlspecialchars($article['nom']); ?>" required style="width:100%; padding:8px;"><br><br>
-    
-    <label>Description :</label><br>
-    <textarea name="description" required style="width:100%; height:100px; padding:8px;"><?php echo htmlspecialchars($article['description']); ?></textarea><br><br>
-    
-    <label>Catégorie :</label><br>
-    <select name="category_id" style="padding:8px; width:100%;">
-        <option value="">-- Choisir une catégorie --</option>
-        <?php
-        $cats = $mysqli->query("SELECT * FROM Category ORDER BY nom ASC");
-        while($c = $cats->fetch_assoc()):
-            $sel = ($c['id'] == $article['category_id']) ? 'selected' : '';
-            echo "<option value='{$c['id']}' $sel>{$c['nom']}</option>";
-        endwhile;
-        ?>
-    </select><br><br>
+            <div style="display: grid; grid-template-columns: 1fr 1fr; gap: 20px;">
+                <div class="form-group">
+                    <label>Prix de vente (€)</label>
+                    <input type="number" step="0.01" name="prix" value="<?php echo $article['prix']; ?>" required>
+                </div>
+                
+                <div class="form-group">
+                    <label>Quantité disponible (Stock)</label>
+                    <input type="number" name="stock" value="<?php echo $article['quantite']; ?>" min="0" required>
+                </div>
+            </div>
 
-    <label>Prix (€) :</label><br>
-    <input type="number" step="0.01" name="prix" value="<?php echo $article['prix']; ?>" required style="padding:8px;"><br><br>
-    
-    <label>Quantité en stock :</label><br>
-    <input type="number" name="stock" value="<?php echo $article['quantite']; ?>" min="0" required style="padding:8px;"><br><br>
-    
-    <button type="submit" name="update" style="background: #007bff; color: white; border: none; padding: 10px 20px; border-radius: 4px; cursor: pointer;">
-        Sauvegarder les modifications
-    </button>
-    
-    <button type="submit" name="delete" onclick="return confirm('Supprimer définitivement cet article ?')" 
-            style="background: none; border: 1px solid red; color:red; padding: 10px 20px; border-radius: 4px; cursor: pointer; margin-left: 10px;">
-        Supprimer l'article
-    </button>
-</form>
-
-<p style="margin-top: 20px;"><a href="account.php">← Retour à mon profil</a></p>
+            <div style="margin-top: 30px; display: flex; gap: 15px;">
+                <button type="submit" name="update" class="btn-submit" style="flex: 2;">
+                    💾 Enregistrer les modifications
+                </button>
+                
+                <button type="submit" name="delete" class="btn-submit" 
+                        onclick="return confirm('Attention : Cette action est irréversible. Supprimer ?')" 
+                        style="flex: 1; background: #fff; color: #dc3545; border: 1px solid #dc3545;">
+                    🗑️ Supprimer
+                </button>
+            </div>
+        </form>
+    </div>
+</div>
 
 <?php require_once 'includes/footer.php'; ?>
