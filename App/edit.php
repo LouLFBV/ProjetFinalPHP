@@ -15,7 +15,7 @@ $stmt->bind_param("i", $article_id);
 $stmt->execute();
 $article = $stmt->get_result()->fetch_assoc();
 
-// Vérification des droits : seul l'auteur ou l'admin peut modifier
+// Vérification des droits
 if (!$article || ($article['auteur_id'] != $user_id && !$is_admin)) {
     header("Location: index.php");
     exit;
@@ -33,12 +33,13 @@ if (isset($_POST['update'])) {
     $nom = $mysqli->real_escape_string($_POST['nom']);
     $desc = $mysqli->real_escape_string($_POST['description']);
     $prix = floatval($_POST['prix']);
+    $image_url = $mysqli->real_escape_string($_POST['image_url']); // <-- Nouvelle variable
     $cat_id = !empty($_POST['category_id']) ? intval($_POST['category_id']) : null;
     $nouveau_stock = intval($_POST['stock']);
 
-    // Mise à jour Article
-    $upd = $mysqli->prepare("UPDATE Article SET nom = ?, description = ?, prix = ?, category_id = ? WHERE id = ?");
-    $upd->bind_param("ssdii", $nom, $desc, $prix, $cat_id, $article_id);
+    // Mise à jour Article (Ajout de image_url dans la requête)
+    $upd = $mysqli->prepare("UPDATE Article SET nom = ?, description = ?, prix = ?, category_id = ?, image_url = ? WHERE id = ?");
+    $upd->bind_param("ssdisi", $nom, $desc, $prix, $cat_id, $image_url, $article_id);
     $res_art = $upd->execute();
     
     // Mise à jour Stock
@@ -53,10 +54,12 @@ if (isset($_POST['update'])) {
     $res_stock = $upd_stock->execute();
     
     if ($res_art && $res_stock) {
-        $msg = "<div style='background:#d4edda; color:#155724; padding:15px; border-radius:8px; margin-bottom:20px;'>✨ Article et stock mis à jour avec succès !</div>";
+        $msg = "<div style='background:#d4edda; color:#155724; padding:15px; border-radius:8px; margin-bottom:20px;'>✨ Article, image et stock mis à jour avec succès !</div>";
+        // On rafraîchit les données pour l'affichage du formulaire
         $article['nom'] = $nom;
         $article['description'] = $desc;
         $article['prix'] = $prix;
+        $article['image_url'] = $image_url;
         $article['category_id'] = $cat_id;
         $article['quantite'] = $nouveau_stock;
     }
@@ -76,6 +79,14 @@ if (isset($_POST['update'])) {
             <div class="form-group">
                 <label>Titre de l'article</label>
                 <input type="text" name="nom" value="<?php echo htmlspecialchars($article['nom']); ?>" required>
+            </div>
+            
+            <div class="form-group">
+                <label>Lien de l'image (URL)</label>
+                <input type="url" name="image_url" value="<?php echo htmlspecialchars($article['image_url']); ?>" placeholder="https://exemple.com/image.jpg">
+                <?php if(!empty($article['image_url'])): ?>
+                    <small>Aperçu actuel : <a href="<?php echo $article['image_url']; ?>" target="_blank">Voir l'image</a></small>
+                <?php endif; ?>
             </div>
             
             <div class="form-group">
