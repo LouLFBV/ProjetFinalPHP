@@ -17,8 +17,8 @@ if ($is_me && isset($_POST['add_balance'])) {
     }
 }
 
-// Infos de l'utilisateur visé
-$stmt_u = $mysqli->prepare("SELECT username, email, balance FROM User WHERE id = ?");
+// 1. Mise à jour de la requête : on récupère 'image_url' (ou le nom de ta colonne photo)
+$stmt_u = $mysqli->prepare("SELECT username, email, balance, image_url FROM User WHERE id = ?");
 $stmt_u->bind_param("i", $target_id);
 $stmt_u->execute();
 $user = $stmt_u->get_result()->fetch_assoc();
@@ -30,8 +30,8 @@ $mes_favoris = null;
 if ($is_me) {
     $my_id = $_SESSION['user_id'];
     $mes_favoris = $mysqli->query("SELECT Article.* FROM Favorite 
-                                   JOIN Article ON Favorite.article_id = Article.id 
-                                   WHERE Favorite.user_id = $my_id");
+                                    JOIN Article ON Favorite.article_id = Article.id 
+                                    WHERE Favorite.user_id = $my_id");
 }
 
 // Articles postés par ce compte
@@ -41,7 +41,16 @@ $stmt_art->execute();
 $mes_articles = $stmt_art->get_result();
 ?>
 
-<h1>Profil de <?php echo htmlspecialchars($user['username']); ?></h1>
+<div style="display: flex; align-items: center; gap: 20px; margin-bottom: 20px;">
+    <div style="width: 100px; height: 100px; border-radius: 50%; overflow: hidden; background: #eee; border: 2px solid #ddd;">
+        <?php if(!empty($user['image_url'])): ?>
+            <img src="<?php echo htmlspecialchars($user['image_url']); ?>" alt="Photo de profil" style="width: 100%; height: 100%; object-fit: cover;">
+        <?php else: ?>
+            <div style="display: flex; align-items: center; justify-content: center; height: 100%; color: #aaa; font-size: 40px;">👤</div>
+        <?php endif; ?>
+    </div>
+    <h1>Profil de <?php echo htmlspecialchars($user['username']); ?></h1>
+</div>
 
 <div style="background:#f4f4f4; padding:15px; border-radius:8px; margin-bottom:20px;">
     <p><strong>Pseudo :</strong> <?php echo htmlspecialchars($user['username']); ?></p>
@@ -56,7 +65,7 @@ $mes_articles = $stmt_art->get_result();
             <button type="submit" name="add_balance">Recharger</button>
         </form>
         <br><br>
-        <a href="edit_profile.php">Modifier mes infos</a>
+        <a href="edit_profile.php" style="display: inline-block; background: #333; color: white; padding: 8px 15px; text-decoration: none; border-radius: 5px;">⚙️ Modifier mes infos & photo</a>
     <?php endif; ?>
 </div>
 
@@ -134,7 +143,7 @@ $mes_articles = $stmt_art->get_result();
                         <?php echo formatPrix($f['total']); ?>
                     </td>
                     <td style="font-size: 0.8em; text-align:center;">
-                        Le <?php echo date('d/m/Y', strtotime($f['date_achat'])); ?><br>
+                        Le <?php echo date('d/m/Y à H:i', strtotime($f['date_achat'])); ?><br>
                         à <?php echo htmlspecialchars($f['ville_facturation']); ?>
                     </td>
                 </tr>
