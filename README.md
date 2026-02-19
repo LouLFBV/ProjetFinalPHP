@@ -68,6 +68,12 @@ Vérifiez et adaptez les accès dans le fichier `includes/db.php` si nécessaire
 ```php
 $mysqli = new mysqli("localhost", "root", "", "vendons_les");
 ```
+
+Vous pouvez accéder au compte **admin** avec :
+```
+mail : admin@secret.com
+mdp : 1234
+```
 ## 📂 Structure du projet
 ```
 PROJET_VENDONS_LES/
