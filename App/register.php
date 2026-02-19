@@ -69,7 +69,7 @@ if ($_SERVER['REQUEST_METHOD'] === 'POST') {
 
             <div class="form-group">
                 <label for="password">Mot de passe</label>
-                <input type="password" name="password" id="password" placeholder="Min. 8 caractères" required>
+                <input type="password" name="password" id="password" placeholder="z!s32pl*KSK" required>
             </div>
 
             <button type="submit" class="btn-submit">Créer mon compte</button>
