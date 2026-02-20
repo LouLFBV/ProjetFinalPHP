@@ -16,8 +16,18 @@ if (isset($_GET['del_art'])) {
 if (isset($_GET['del_user'])) {
     $id_u = intval($_GET['del_user']);
     if ($id_u !== $_SESSION['user_id']) {
+        // 1. Supprimer les articles de l'utilisateur (pour éviter l'erreur de clé étrangère)
+        $mysqli->query("DELETE FROM Article WHERE auteur_id = $id_u");
+        
+        // 2. Supprimer les autres données liées (panier, favoris...)
+        $mysqli->query("DELETE FROM Cart WHERE user_id = $id_u");
+        $mysqli->query("DELETE FROM Favorite WHERE user_id = $id_u");
+
+        // 3. Enfin, supprimer l'utilisateur
         $mysqli->query("DELETE FROM User WHERE id = $id_u");
-        header("Location: admin.php?msg=Utilisateur supprimé"); exit;
+        
+        header("Location: admin.php?msg=Utilisateur et ses données supprimés"); 
+        exit;
     }
 }
 if (isset($_GET['del_cat'])) {
